@@ -1,0 +1,11 @@
+pyTelegramBotAPI
+aiohttp
+requests
+beautifulsoup4
+ddgs
+g4f
+vosk
+soundfile
+librosa
+numpy
+python-dotenv
