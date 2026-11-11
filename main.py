@@ -917,6 +917,30 @@ async def handle_text_message(message):
         await bot.reply_to(message, "<b>Ошибка!</b> Не удалось обработать сообщение.", parse_mode="HTML")
 
 
+async def handle_reset_command(message):
+    chat_id = message.chat.id
+    try:
+        if message.chat.type in ['group', 'supergroup']:
+            is_admin = message.sender_chat is not None and message.sender_chat.id == chat_id
+            if not is_admin:
+                member = await bot.get_chat_member(chat_id, message.from_user.id)
+                is_admin = member.status in ('administrator', 'creator')
+            if not is_admin:
+                await bot.reply_to(message, "<b>Только администраторы группы могут очистить историю.</b>", parse_mode="HTML")
+                return
+
+        init_db(chat_id)
+        conn = sqlite3.connect(f'bobrik/DataBases/chat_{chat_id}.db')
+        c = conn.cursor()
+        c.execute('DELETE FROM messages WHERE chat_id = ?', (chat_id,))
+        conn.commit()
+        conn.close()
+        await bot.reply_to(message, "<b>История чата очищена.</b>", parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Ошибка в handle_reset_command для чата {chat_id}: {e}")
+        await bot.reply_to(message, "<b>Ошибка!</b> Не удалось очистить историю.", parse_mode="HTML")
+
+
 @bot.message_handler(func=lambda message: True)
 async def main_handler(message):
     try:
@@ -931,6 +955,8 @@ async def main_handler(message):
                 await handle_image_command(message)
             elif message.text.startswith('/search'):
                 await handle_search_command(message)
+            elif message.text.startswith('/reset'):
+                await handle_reset_command(message)
             return
 
         if message.chat.type == 'private':
