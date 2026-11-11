@@ -1,5 +1,6 @@
 import os
 import asyncio
+import functools
 import logging
 import sys
 import time
@@ -622,6 +623,27 @@ async def handle_photo(message):
         await bot.reply_to(message, "<b>Ошибка!</b> Не удалось обработать фото.", parse_mode="HTML")
 
 
+async def _typing_loop(chat_id):
+    while True:
+        try:
+            await bot.send_chat_action(chat_id, 'typing')
+        except Exception:
+            pass
+        await asyncio.sleep(4)
+
+
+def with_typing(func):
+    @functools.wraps(func)
+    async def wrapper(user_input, chat_id, *args, **kwargs):
+        task = asyncio.create_task(_typing_loop(chat_id))
+        try:
+            return await func(user_input, chat_id, *args, **kwargs)
+        finally:
+            task.cancel()
+    return wrapper
+
+
+@with_typing
 async def generate_response(user_input, chat_id, user_id, is_search=False):
     max_retries = 5
     retries = 0
