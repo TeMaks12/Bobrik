@@ -34,9 +34,7 @@ if not API_KEYS:
 MODELS_API_URL = "https://openrouter.ai/api/v1/chat/completions"
 MODELS_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
 
-# VISION_MODEL = "nvidia/nemotron-3.5-super-vl:free"
-# VISION_MODEL = "dots-studio/dots-3-note-preview:free"
-VISION_MODEL = "liquid/lfm-2.5-2.6b:free"
+VISION_MODEL = "minimax/minimax-h3-image-highspeed"
 
 # TTS silero или api
 TTS_MODE = "silero"
