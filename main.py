@@ -29,13 +29,13 @@ from commands.link_handlers import register_link_handlers
 from commands.ball import register_ball_handler
 from config.prompts import *
 from config.settings import *
+from config.access import get_api_key
+from commands.access import register_access_handlers
 
 MODELS_API_URL = MODELS_API_URL
-MODELS_API_KEY = MODELS_API_KEY
 MODELS_MODEL = MODELS_MODEL
 
 # распознавания изображений
-VISION_API_KEY = VISION_API_KEY
 VISION_MODEL = VISION_MODEL
 
 context_dan = CONTEXT_DAN
@@ -46,6 +46,7 @@ image_context = IMAGE_CONTEXT
 image_response_prompt = IMAGE_RESPONSE_PROMPT
 
 bot = AsyncTeleBot(BOT_TOKEN)
+register_access_handlers(bot)
 
 # names
 NAME_PHRASES = NAME_PHRASES
@@ -64,7 +65,6 @@ os.makedirs(VOICE_DIR, exist_ok=True)
 TTS_MODE = TTS_MODE
 TTS_API_URL = TTS_API_URL
 TTS_MODEL = TTS_MODEL
-TTS_API_KEY = TTS_API_KEY
 
 # logs
 logging.basicConfig(
@@ -273,7 +273,7 @@ async def text_to_speech(text, filename="response"):
         if TTS_MODE == "silero":
             logger.warning("Silero TTS отключён в этой сборке, используется API")
         headers = {
-            "Authorization": f"Bearer {TTS_API_KEY}",
+            "Authorization": f"Bearer {get_api_key()}",
             "Content-Type": "application/json"
         }
         data = {
@@ -309,7 +309,7 @@ async def generate_image_response(prompt):
         try:
             start_time = time.time()
             headers = {
-                "Authorization": f"Bearer {MODELS_API_KEY}",
+                "Authorization": f"Bearer {get_api_key()}",
                 "Content-Type": "application/json"
             }
             data = {
@@ -502,7 +502,7 @@ async def direct_image_recognition(image_data, prompt):
         image_url = f"data:image/jpeg;base64,{base64_image}"
 
         headers = {
-            "Authorization": f"Bearer {VISION_API_KEY}",
+            "Authorization": f"Bearer {get_api_key()}",
             "Content-Type": "application/json",
         }
 
@@ -550,7 +550,7 @@ async def recognize_image(image_data):
         image_url = f"data:image/jpeg;base64,{base64_image}"
 
         headers = {
-            "Authorization": f"Bearer {VISION_API_KEY}",
+            "Authorization": f"Bearer {get_api_key()}",
             "Content-Type": "application/json",
         }
         data = json.dumps({
@@ -688,7 +688,7 @@ async def generate_response(user_input, chat_id, user_id, is_search=False):
         search_query = None
         try:
             headers = {
-                "Authorization": f"Bearer {MODELS_API_KEY}",
+                "Authorization": f"Bearer {get_api_key()}",
                 "Content-Type": "application/json"
             }
             data = {
@@ -783,7 +783,7 @@ async def generate_response(user_input, chat_id, user_id, is_search=False):
         try:
             start_time = time.time()
             headers = {
-                "Authorization": f"Bearer {MODELS_API_KEY}",
+                "Authorization": f"Bearer {get_api_key()}",
                 "Content-Type": "application/json"
             }
             data = {
