@@ -9,3 +9,4 @@ librosa
 numpy
 python-dotenv
 imageio
+imageio-ffmpeg
