@@ -1,6 +1,5 @@
 import os
 import asyncio
-import functools
 import logging
 import sys
 import time
@@ -8,6 +7,7 @@ import sqlite3
 import requests
 import random
 import re
+from contextlib import asynccontextmanager
 from telebot.async_telebot import AsyncTeleBot
 from g4f.client import Client
 import aiohttp
@@ -623,28 +623,29 @@ async def handle_photo(message):
         await bot.reply_to(message, "<b>Ошибка!</b> Не удалось обработать фото.", parse_mode="HTML")
 
 
-async def _typing_loop(chat_id):
-    while True:
-        try:
-            await bot.send_chat_action(chat_id, 'typing')
-        except Exception:
-            pass
-        await asyncio.sleep(4)
+@asynccontextmanager
+async def typing_action(chat_id):
+    async def loop():
+        while True:
+            try:
+                await bot.send_chat_action(chat_id, "typing")
+            except Exception:
+                pass
+            await asyncio.sleep(4)
+
+    task = asyncio.create_task(loop())
+    try:
+        yield
+    finally:
+        task.cancel()
 
 
-def with_typing(func):
-    @functools.wraps(func)
-    async def wrapper(user_input, chat_id, *args, **kwargs):
-        task = asyncio.create_task(_typing_loop(chat_id))
-        try:
-            return await func(user_input, chat_id, *args, **kwargs)
-        finally:
-            task.cancel()
-    return wrapper
-
-
-@with_typing
 async def generate_response(user_input, chat_id, user_id, is_search=False):
+    async with typing_action(chat_id):
+        return await _generate_response(user_input, chat_id, user_id, is_search)
+
+
+async def _generate_response(user_input, chat_id, user_id, is_search=False):
     max_retries = 5
     retries = 0
     empty_retries = 0
@@ -917,30 +918,6 @@ async def handle_text_message(message):
         await bot.reply_to(message, "<b>Ошибка!</b> Не удалось обработать сообщение.", parse_mode="HTML")
 
 
-async def handle_reset_command(message):
-    chat_id = message.chat.id
-    try:
-        if message.chat.type in ['group', 'supergroup']:
-            is_admin = message.sender_chat is not None and message.sender_chat.id == chat_id
-            if not is_admin:
-                member = await bot.get_chat_member(chat_id, message.from_user.id)
-                is_admin = member.status in ('administrator', 'creator')
-            if not is_admin:
-                await bot.reply_to(message, "<b>Только администраторы группы могут очистить историю.</b>", parse_mode="HTML")
-                return
-
-        init_db(chat_id)
-        conn = sqlite3.connect(f'bobrik/DataBases/chat_{chat_id}.db')
-        c = conn.cursor()
-        c.execute('DELETE FROM messages WHERE chat_id = ?', (chat_id,))
-        conn.commit()
-        conn.close()
-        await bot.reply_to(message, "<b>История чата очищена.</b>", parse_mode="HTML")
-    except Exception as e:
-        logger.error(f"Ошибка в handle_reset_command для чата {chat_id}: {e}")
-        await bot.reply_to(message, "<b>Ошибка!</b> Не удалось очистить историю.", parse_mode="HTML")
-
-
 @bot.message_handler(func=lambda message: True)
 async def main_handler(message):
     try:
@@ -955,8 +932,6 @@ async def main_handler(message):
                 await handle_image_command(message)
             elif message.text.startswith('/search'):
                 await handle_search_command(message)
-            elif message.text.startswith('/reset'):
-                await handle_reset_command(message)
             return
 
         if message.chat.type == 'private':
