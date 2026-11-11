@@ -1,18 +1,38 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 # directions
 BASE_DIR = Path(__file__).resolve().parent.parent
 MODELS_DIR = BASE_DIR / "models"
 SILERO_MODELS_DIR = BASE_DIR / "silero_models"
 VOICE_DIR = BASE_DIR / "bobrik" / "voice_responses"
 DATABASES_DIR = BASE_DIR / "bobrik" / "DataBases"
+ACCESS_FILE = BASE_DIR / "bobrik" / "access.json"
 
 os.makedirs(VOICE_DIR, exist_ok=True)
 os.makedirs(DATABASES_DIR, exist_ok=True)
 
-# API
 
+def load_api_keys():
+    keys = []
+    i = 1
+    while os.getenv(f"OPENROUTER_API_KEY_{i}"):
+        keys.append(os.environ[f"OPENROUTER_API_KEY_{i}"].strip())
+        i += 1
+    return keys
+
+
+# API
+API_KEYS = load_api_keys()
+if not API_KEYS:
+    raise RuntimeError("Не найдено ни одного OPENROUTER_API_KEY_1, OPENROUTER_API_KEY_2, ... в .env")
+
+MODELS_API_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODELS_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
 
 # VISION_MODEL = "nvidia/nemotron-3.5-super-vl:free"
 # VISION_MODEL = "dots-studio/dots-3-note-preview:free"
@@ -23,12 +43,17 @@ TTS_MODE = "silero"
 
 TTS_API_URL = "https://openrouter.ai/api/v1/audio/speech"
 TTS_MODEL = "fish-audio/s2.1-pro-free:free"
-TTS_API_KEY = MODELS_API_KEY
 
 # BOT_TOKEN = '7834137663:AAEAU5Tgkfyjlm9ytkpGymq4wPgMp0lKmyU' # Первый
 BOT_TOKEN = '7983667693:AAHDNSm7YFdzL2e6mwesrj0x-X2Z4gS-crs' # Второй
 
-ADMIN_IDS = {5973554102, 5987155879}
+# owner
+OWNER_ID = int(os.environ["OWNER_ID"])
+OWNER_NAME = os.environ["OWNER_NAME"]
+OWNER_USERNAME = "@" + os.environ["OWNER_USERNAME"].lstrip("@")
+DENIED_TEXT = "Ты не можешь пользоваться ботом"
+
+ADMIN_IDS = {12345678}
 
 NAME_PHRASES = [
     r"меня зовут (\w+)", r"можешь звать меня (\w+)", r"моё имя (\w+)",
