@@ -19,10 +19,14 @@ SUPERSAMPLE = 2
 
 DEFAULT_RINGS = 12
 MIN_RINGS, MAX_RINGS = 3, 20
+DEFAULT_SECONDS = 20
+MIN_SECONDS, MAX_SECONDS = 5, 60
+TOLERANCE = 0.07
 INNER_RADIUS = 105
 OUTER_RADIUS = 335
 
 GAP_HALF = 0.75
+GAP_MIN, GAP_MAX = 0.22, 1.6
 GAP_STEP = (0.15, 0.45)
 GAP_JITTER = 0.25
 
@@ -39,17 +43,14 @@ ROT_SPEED_SPREAD = 0.9
 GRAVITY = 0.18
 SPEED_MIN, SPEED_MAX = 3.5, 9.0
 BOUNCE_JITTER = 0.05
+BOUNCE_BOOST = 1.5
 
 TAIL_SEC = 1.0
-HARD_LIMIT_SEC = 90
-SIM_ATTEMPTS = 40
+HARD_LIMIT_SEC = 120
+SIM_ATTEMPTS = 60
 TRAIL_LENGTH = 14
 
 TAU = math.tau
-
-
-def _duration_window(rings):
-    return 0.5 * rings + 1, 2.0 * rings + 4
 
 
 def _layout(n):
@@ -61,13 +62,14 @@ def _layout(n):
 
 
 class _Timeline:
-    def __init__(self, seed, n, hue, frames, done_frame, passes):
+    def __init__(self, seed, n, hue, frames, done_frame, passes, gap_half):
         self.seed = seed
         self.n = n
         self.hue = hue
         self.frames = frames
         self.done_frame = done_frame
         self.passes = passes
+        self.gap_half = gap_half
 
     @property
     def duration(self):
@@ -75,8 +77,9 @@ class _Timeline:
 
 
 class _Sim:
-    def __init__(self, seed, n):
+    def __init__(self, seed, n, gap_half):
         self.rng = random.Random(seed)
+        self.gap_half = gap_half
         self.seed = seed
         self.n = n
         self.radii, self.th, self.r = _layout(n)
@@ -122,7 +125,7 @@ class _Sim:
     def _in_gap(self, i, phi):
         diff = (phi - (self.gap[i] + self.phases[i]) + math.pi) % TAU - math.pi
         margin = (self.r + self.h) / self.radii[i] + 0.02
-        return abs(diff) <= GAP_HALF * (1 - self.seal[i]) - margin
+        return abs(diff) <= self.gap_half * (1 - self.seal[i]) - margin
 
     def _bounce(self, i, outer):
         d = math.hypot(self.px, self.py) or 1e-9
@@ -144,8 +147,12 @@ class _Sim:
         j = self.rng.uniform(-BOUNCE_JITTER, BOUNCE_JITTER)
         c, s = math.cos(j), math.sin(j)
         self.vx, self.vy = self.vx * c - self.vy * s, self.vx * s + self.vy * c
+
         speed = math.hypot(self.vx, self.vy) or 1e-9
-        k = min(max(speed, SPEED_MIN), SPEED_MAX) / speed
+        left = self.n - len(self.passed)
+        frac = 1.0 - (left - 1) / max(1, self.n - 1)
+        boost = 1.0 + BOUNCE_BOOST * frac
+        k = min(max(speed, SPEED_MIN * boost), SPEED_MAX * boost) / speed
         self.vx *= k
         self.vy *= k
 
@@ -237,23 +244,24 @@ class _Sim:
             self.pulse *= 0.86
 
             if self.done is not None and f - self.done >= tail:
-                return _Timeline(self.seed, self.n, self.hue, frames, self.done, self.passes)
+                return _Timeline(self.seed, self.n, self.hue, frames, self.done, self.passes, self.gap_half)
         return None
 
 
-def _plan(rings):
-    lo, hi = _duration_window(rings)
+def _plan(rings, target):
+    lo, hi = target * (1 - TOLERANCE), target * (1 + TOLERANCE)
+    gap = GAP_HALF
     best, best_miss = None, float("inf")
     for _ in range(SIM_ATTEMPTS):
-        tl = _Sim(random.getrandbits(32), rings).run()
-        if tl is None:
-            continue
-        d = tl.duration
-        if lo <= d <= hi:
-            return tl
-        miss = lo - d if d < lo else d - hi
-        if miss < best_miss:
-            best, best_miss = tl, miss
+        tl = _Sim(random.getrandbits(32), rings, gap).run()
+        d = tl.duration if tl else HARD_LIMIT_SEC
+        if tl:
+            if lo <= d <= hi:
+                return tl
+            miss = abs(d - target)
+            if miss < best_miss:
+                best, best_miss = tl, miss
+        gap = min(GAP_MAX, max(GAP_MIN, gap * (d / target) ** 0.6))
     if best is None:
         raise RuntimeError("не удалось получить подходящий прогон")
     return best
@@ -308,7 +316,7 @@ def _render_frame(tl, idx, geom):
             k = 1.0 - v
             color = (int(color[0] * k), int(color[1] * k), int(color[2] * k))
         Rs = R * SUPERSAMPLE
-        half = GAP_HALF * (1 - seal[i])
+        half = tl.gap_half * (1 - seal[i])
         if half < 0.02:
             if v <= 0:
                 dr.ellipse([c - Rs - h, c - Rs - h, c + Rs + h, c + Rs + h],
@@ -337,18 +345,19 @@ def _render_frame(tl, idx, geom):
 
 def render_ring_video(tl, path):
     geom = _layout(tl.n)
-    tl.gap_base = _Sim(tl.seed, tl.n).gap
+    tl.gap_base = _Sim(tl.seed, tl.n, tl.gap_half).gap
     with imageio.get_writer(path, fps=FPS // RENDER_STEP, macro_block_size=1, quality=6,
                             ffmpeg_params=["-preset", "veryfast"]) as writer:
         for i in range(0, len(tl.frames), RENDER_STEP):
             writer.append_data(np.asarray(_render_frame(tl, i, geom)))
 
 
-def generate_ring_video(rings=DEFAULT_RINGS):
+def generate_ring_video(seconds=DEFAULT_SECONDS, rings=DEFAULT_RINGS):
+    seconds = max(MIN_SECONDS, min(MAX_SECONDS, int(seconds)))
     rings = max(MIN_RINGS, min(MAX_RINGS, int(rings)))
-    tl = _plan(rings)
-    logger.info("Ring video: seed=%s rings=%s duration=%.1fs passes=%s",
-                tl.seed, rings, tl.duration, len(tl.passes))
+    tl = _plan(rings, seconds)
+    logger.info("Ring video: seed=%s rings=%s target=%ss duration=%.1fs gap=%.2f passes=%s",
+                tl.seed, rings, seconds, tl.duration, tl.gap_half, len(tl.passes))
 
     tmp = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
     tmp.close()
@@ -365,14 +374,13 @@ def register_ball_handler(bot):
     @bot.message_handler(commands=["ball"])
     async def handle_ball_command(message):
         try:
-            rings = DEFAULT_RINGS
             args = (message.text or "").split()
-            if len(args) > 1 and args[1].isdigit():
-                rings = max(MIN_RINGS, min(MAX_RINGS, int(args[1])))
+            seconds = int(args[1]) if len(args) > 1 and args[1].isdigit() else DEFAULT_SECONDS
+            rings = int(args[2]) if len(args) > 2 and args[2].isdigit() else DEFAULT_RINGS
 
             msg = await bot.reply_to(message, "<b>Генерирую видео...</b>", parse_mode="HTML")
             try:
-                video_path, duration, rings = await asyncio.to_thread(generate_ring_video, rings)
+                video_path, duration, rings = await asyncio.to_thread(generate_ring_video, seconds, rings)
             except Exception as e:
                 logger.error(f"Ошибка при генерации видео: {e}")
                 await bot.reply_to(message, "Не удалось сгенерировать видео.", parse_mode="HTML")
