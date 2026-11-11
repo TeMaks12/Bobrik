@@ -44,8 +44,7 @@ TTS_MODE = "silero"
 TTS_API_URL = "https://openrouter.ai/api/v1/audio/speech"
 TTS_MODEL = "fish-audio/s2.1-pro-free:free"
 
-# BOT_TOKEN = '7834137663:AAEAU5Tgkfyjlm9ytkpGymq4wPgMp0lKmyU' # Первый
-BOT_TOKEN = '7983667693:AAHDNSm7YFdzL2e6mwesrj0x-X2Z4gS-crs' # Второй
+BOT_TOKEN = os.environ["BOT_TOKEN"]
 
 # owner
 OWNER_ID = int(os.environ["OWNER_ID"])
