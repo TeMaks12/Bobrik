@@ -8,11 +8,6 @@ import requests
 import random
 import re
 from telebot.async_telebot import AsyncTeleBot
-from vosk import Model, KaldiRecognizer
-import wave
-import soundfile as sf
-import librosa
-import numpy as np
 from g4f.client import Client
 import aiohttp
 from ddgs import DDGS
@@ -20,7 +15,6 @@ from ddgs import DDGS
 from bs4 import BeautifulSoup
 import base64
 import json
-from vosk import Model, KaldiRecognizer, SetLogLevel
 
 from commands.help import register_help_handler
 from commands.start import register_start_handler
@@ -57,8 +51,6 @@ os.makedirs("user_data", exist_ok=True)
 # Список разрешенных пользователей (для ссылок и т.д)
 ADMIN_IDS = ADMIN_IDS
 
-SetLogLevel(-1)
-model = Model("models/vosk-model-small-ru-0.22")
 VOICE_DIR = "bobrik/voice_responses"
 os.makedirs(VOICE_DIR, exist_ok=True)
 
@@ -270,8 +262,6 @@ def format_history(history, context_name="текущего чата"):
 
 async def text_to_speech(text, filename="response"):
     try:
-        if TTS_MODE == "silero":
-            logger.warning("Silero TTS отключён в этой сборке, используется API")
         headers = {
             "Authorization": f"Bearer {get_api_key()}",
             "Content-Type": "application/json"
@@ -852,68 +842,6 @@ async def generate_response(user_input, chat_id, user_id, is_search=False):
 
     return fallback, 0
 
-@bot.message_handler(content_types=['voice'])
-async def handle_voice(message):
-    try:
-        logger.info(f"Обработка голосового сообщения в чате {message.chat.id}")
-        init_db(message.chat.id)
-        file_info = await bot.get_file(message.voice.file_id)
-        downloaded_file = await bot.download_file(file_info.file_path)
-
-        with open("voice.ogg", "wb") as f:
-            f.write(downloaded_file)
-
-        data, samplerate = sf.read("voice.ogg")
-        data_mono = librosa.to_mono(data.T)
-        data_resampled = librosa.resample(data_mono, orig_sr=samplerate, target_sr=16000)
-        sf.write("voice.wav", data_resampled, 16000, subtype='PCM_16')
-
-        wf = wave.open("voice.wav", "rb")
-        rec = KaldiRecognizer(model, 16000)
-
-        while True:
-            data = wf.readframes(4000)
-            if len(data) == 0:
-                break
-            rec.AcceptWaveform(data)
-
-        final_result = rec.FinalResult()
-        recognized_text = eval(final_result).get("text", "")
-
-        if recognized_text:
-            logger.info(f"Распознанный текст: {recognized_text}")
-            custom_name = extract_name_from_message(recognized_text)
-            if custom_name:
-                update_user_info(message.chat.id, message.from_user, custom_name)
-                response = f"<b>Отлично, {custom_name}!</b> Буду знать тебя так."
-                voice_path = await text_to_speech(response)
-                if voice_path:
-                    with open(voice_path, 'rb') as voice_file:
-                        await bot.send_voice(message.chat.id, voice_file)
-                return
-
-            response, response_time = await generate_response(recognized_text, message.chat.id, message.from_user.id)
-            save_message(message.chat.id, message.from_user.id, recognized_text, response)
-            voice_path = await text_to_speech(response)
-            if voice_path:
-                with open(voice_path, 'rb') as voice_file:
-                    await bot.send_voice(message.chat.id, voice_file)
-        else:
-            logger.warning(f"Не удалось распознать текст из голосового сообщения в чате {message.chat.id}")
-            error_msg = "<b>Ошибка!</b> Не удалось разобрать речь. Попробуй еще раз."
-            voice_path = await text_to_speech(error_msg)
-            if voice_path:
-                with open(voice_path, 'rb') as voice_file:
-                    await bot.send_voice(message.chat.id, voice_file)
-    except Exception as e:
-        logger.error(f"Ошибка при обработке голосового сообщения: {e}")
-        error_msg = "<b>Ошибка!</b> Что-то пошло не так при обработке голоса. Попробуй текстом."
-        voice_path = await text_to_speech(error_msg)
-        if voice_path:
-            with open(voice_path, 'rb') as voice_file:
-                await bot.send_voice(message.chat.id, voice_file)
-
-
 async def handle_text_message(message):
     try:
         logger.info(f"Оброботка текстового сообщения в чате {message.chat.id}: {message.text}")
@@ -989,8 +917,6 @@ async def main_handler(message):
 
             if message.content_type == 'text':
                 await handle_text_message(message)
-            elif message.content_type == 'voice':
-                await handle_voice(message)
 
         elif message.chat.type in ['group', 'supergroup']:
             init_db(message.chat.id)
