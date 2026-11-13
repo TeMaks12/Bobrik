@@ -16,6 +16,18 @@ ACCESS_FILE = BASE_DIR / "bobrik" / "access.json"
 os.makedirs(VOICE_DIR, exist_ok=True)
 os.makedirs(DATABASES_DIR, exist_ok=True)
 
+MODELS_LIST = [
+    "deepseek-flash",
+    "deepseek-v4-pro",
+    "claude-sonnet-5-5",
+    "glm-5",
+    "grok-4.5",
+    "gpt-5.4-mini",
+    "kimi-k2",
+    "mistral-medium",
+    "gemini-3.5-flash",
+]
+MODEL_FILE = BASE_DIR / "bobrik" / "model.json"
 
 def load_api_keys():
     keys = []
