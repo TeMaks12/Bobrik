@@ -941,7 +941,7 @@ async def handle_reset_command(message):
                 await bot.reply_to(message, "<b>Ошибка!</b> Очищать историю могут только администраторы чата.", parse_mode="HTML")
                 return
         if clear_chat_history(chat_id):
-            await bot.reply_to(message, "<b>Готово.</b> История чата очищена.", parse_mode="HTML")
+            await bot.reply_to(message, "История чата очищена.", parse_mode="HTML")
         else:
             await bot.reply_to(message, "<b>Ошибка!</b> Не удалось очистить историю.", parse_mode="HTML")
     except Exception as e:
