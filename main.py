@@ -942,6 +942,28 @@ def clear_chat_history(chat_id):
         return False
 
 
+@bot.message_handler(commands=['tokens'])
+async def handle_tokens_command(message):
+    if message.from_user.id != OWNER_ID:
+        await bot.reply_to(message, "Эту команду может использовать только владелец.")
+        return
+    try:
+        headers = {"Authorization": f"Bearer {get_api_key()}"}
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
+            async with session.get(f"{API_BASE_URL}/balance", headers=headers) as resp:
+                text = await resp.text()
+                if resp.status != 200:
+                    await bot.reply_to(message, f"Ошибка {resp.status}: {text[:500]}")
+                    return
+        try:
+            text = json.dumps(json.loads(text), ensure_ascii=False, indent=2)
+        except ValueError:
+            pass
+        await bot.reply_to(message, text)
+    except Exception as e:
+        logger.error(f"Ошибка в /tokens: {e}")
+        await bot.reply_to(message, "<b>Ошибка!</b> Не удалось получить баланс.", parse_mode="HTML")
+
 @bot.message_handler(commands=['reset'])
 async def handle_reset_command(message):
     try:
