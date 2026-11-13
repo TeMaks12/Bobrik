@@ -24,8 +24,6 @@ from commands.link_handlers import register_link_handlers
 from commands.ball import register_ball_handler
 from config.prompts import *
 from config.settings import *
-from config.access import get_api_key
-from commands.access import register_access_handlers
 from commands.model import register_model_handlers, get_model
 
 MODELS_API_URL = MODELS_API_URL
@@ -42,7 +40,6 @@ image_context = IMAGE_CONTEXT
 image_response_prompt = IMAGE_RESPONSE_PROMPT
 
 bot = AsyncTeleBot(BOT_TOKEN)
-register_access_handlers(bot)
 register_model_handlers(bot)
 
 # names
@@ -938,7 +935,7 @@ def clear_chat_history(chat_id):
 async def handle_reset_command(message):
     try:
         chat_id = message.chat.id
-        if message.chat.type != 'private':
+        if message.chat.type != 'private' and message.from_user.id != OWNER_ID:
             member = await bot.get_chat_member(chat_id, message.from_user.id)
             if member.status not in ('creator', 'administrator'):
                 await bot.reply_to(message, "<b>Ошибка!</b> Очищать историю могут только администраторы чата.", parse_mode="HTML")
