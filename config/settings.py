@@ -20,8 +20,8 @@ os.makedirs(DATABASES_DIR, exist_ok=True)
 def load_api_keys():
     keys = []
     i = 1
-    while os.getenv(f"OPENROUTER_API_KEY_{i}"):
-        keys.append(os.environ[f"OPENROUTER_API_KEY_{i}"].strip())
+    while os.getenv(f"KLINCH_API_KEY_{i}"):
+        keys.append(os.environ[f"KLINCH_API_KEY_{i}"].strip())
         i += 1
     return keys
 
@@ -29,18 +29,20 @@ def load_api_keys():
 # API
 API_KEYS = load_api_keys()
 if not API_KEYS:
-    raise RuntimeError("Не найдено ни одного OPENROUTER_API_KEY_1, OPENROUTER_API_KEY_2, ... в .env")
+    raise RuntimeError("Не найдено ни одного KLINCH_API_KEY_1, KLINCH_API_KEY_2, ... в .env")
 
-MODELS_API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODELS_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free"
+API_BASE_URL = os.getenv("KLINCH_API_BASE_URL", "https://api.klinch.cloud/v1").rstrip("/")
 
-VISION_MODEL = "minimax/minimax-h3-image-highspeed"
+MODELS_API_URL = f"{API_BASE_URL}/chat/completions"
+MODELS_MODEL = "deepseek-flash"
+
+VISION_MODEL = "deepseek-flash"
 
 # TTS silero или api
 TTS_MODE = "silero"
 
-TTS_API_URL = "https://openrouter.ai/api/v1/audio/speech"
-TTS_MODEL = "fish-audio/s2.1-pro-free:free"
+TTS_API_URL = f"{API_BASE_URL}/audio/speech"
+TTS_MODEL = "tts-1"
 
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 
