@@ -951,15 +951,12 @@ async def handle_tokens_command(message):
         headers = {"Authorization": f"Bearer {get_api_key()}"}
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=15)) as session:
             async with session.get(f"{API_BASE_URL}/balance", headers=headers) as resp:
-                text = await resp.text()
                 if resp.status != 200:
-                    await bot.reply_to(message, f"Ошибка {resp.status}: {text[:500]}")
+                    await bot.reply_to(message, f"Ошибка {resp.status}: {(await resp.text())[:500]}")
                     return
-        try:
-            text = json.dumps(json.loads(text), ensure_ascii=False, indent=2)
-        except ValueError:
-            pass
-        await bot.reply_to(message, text)
+                data = await resp.json()
+        balance = f"{int(data['balance']):,}".replace(",", ".")
+        await bot.reply_to(message, f"Количество токенов: {balance}.")
     except Exception as e:
         logger.error(f"Ошибка в /tokens: {e}")
         await bot.reply_to(message, "<b>Ошибка!</b> Не удалось получить баланс.", parse_mode="HTML")
