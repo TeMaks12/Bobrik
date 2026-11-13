@@ -4,27 +4,17 @@ from config.settings import ACCESS_FILE, API_KEYS, OWNER_ID
 
 _data = json.loads(ACCESS_FILE.read_text(encoding="utf-8")) if ACCESS_FILE.exists() else {}
 allowed_ids = {int(x) for x in _data.get("users", [])}
-_state = {"key": min(max(int(_data.get("key", 0)), 0), len(API_KEYS) - 1)}
 
 
 def _save():
     ACCESS_FILE.write_text(
-        json.dumps({"users": sorted(allowed_ids), "key": _state["key"]}),
+        json.dumps({"users": sorted(allowed_ids)}),
         encoding="utf-8",
     )
 
 
 def get_api_key():
-    return API_KEYS[_state["key"]]
-
-
-def get_key_index():
-    return _state["key"]
-
-
-def set_key_index(index):
-    _state["key"] = index
-    _save()
+    return API_KEYS[0]
 
 
 def add_user(user_id):
