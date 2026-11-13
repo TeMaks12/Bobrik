@@ -604,19 +604,16 @@ async def handle_photo(message):
 
             await bot.reply_to(message, response, parse_mode="Markdown")
             await bot.delete_message(message.chat.id, recognizing_msg.message_id)
-        else:
-            description = await recognize_image(downloaded_file)
-
-            if caption:
-                user_input = f"{caption}\nпользователь скинул изображение, описание: {description}"
-            else:
-                user_input = f"пользователь скинул фото, её описание: {description}"
-
-            response, response_time = await generate_response(user_input, message.chat.id, message.from_user.id)
+               else:
+            user_input = f"[пользователь прислал фото] {caption}".strip()
+            response, response_time = await generate_response(
+                user_input,
+                message.chat.id,
+                message.from_user.id,
+                image_data=downloaded_file
+            )
             save_message(message.chat.id, message.from_user.id, user_input, response)
-
             await bot.reply_to(message, response, parse_mode="Markdown")
-            # await bot.delete_message(message.chat.id, recognizing_msg.message_id)
     except Exception as e:
         logger.error(f"Ошибка в обработчике фото: {e}")
         await bot.reply_to(message, "<b>Ошибка!</b> Не удалось обработать фото.", parse_mode="HTML")
@@ -639,12 +636,12 @@ async def typing_action(chat_id):
         task.cancel()
 
 
-async def generate_response(user_input, chat_id, user_id, is_search=False):
+async def generate_response(user_input, chat_id, user_id, is_search=False, image_data=None):
     async with typing_action(chat_id):
-        return await _generate_response(user_input, chat_id, user_id, is_search)
+        return await _generate_response(user_input, chat_id, user_id, is_search, image_data)
 
 
-async def _generate_response(user_input, chat_id, user_id, is_search=False):
+async def _generate_response(user_input, chat_id, user_id, is_search=False, image_data=None):
     max_retries = 5
     retries = 0
     empty_retries = 0
