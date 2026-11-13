@@ -11,22 +11,11 @@ MODELS_DIR = BASE_DIR / "models"
 SILERO_MODELS_DIR = BASE_DIR / "silero_models"
 VOICE_DIR = BASE_DIR / "bobrik" / "voice_responses"
 DATABASES_DIR = BASE_DIR / "bobrik" / "DataBases"
+MODEL_FILE = BASE_DIR / "bobrik" / "model.json"
 
 os.makedirs(VOICE_DIR, exist_ok=True)
 os.makedirs(DATABASES_DIR, exist_ok=True)
 
-MODELS_LIST = [
-    "deepseek-flash",
-    "deepseek-v4-pro",
-    "claude-sonnet-5-5",
-    "glm-5",
-    "grok-4.5",
-    "gpt-5.4-mini",
-    "kimi-k2",
-    "mistral-medium",
-    "gemini-3.5-flash",
-]
-MODEL_FILE = BASE_DIR / "bobrik" / "model.json"
 
 def load_api_keys():
     keys = []
@@ -42,10 +31,27 @@ API_KEYS = load_api_keys()
 if not API_KEYS:
     raise RuntimeError("Не найдено ни одного KLINCH_API_KEY_1, KLINCH_API_KEY_2, ... в .env")
 
+
+def get_api_key():
+    return API_KEYS[0]
+
+
 API_BASE_URL = os.getenv("KLINCH_API_BASE_URL", "https://api.klinch.cloud/v1").rstrip("/")
 
 MODELS_API_URL = f"{API_BASE_URL}/chat/completions"
 MODELS_MODEL = "deepseek-flash"
+
+MODELS_LIST = [
+    "deepseek-flash",
+    "deepseek-v4-pro",
+    "claude-sonnet-5-5",
+    "glm-5",
+    "grok-4.5",
+    "gpt-5.4-mini",
+    "kimi-k2",
+    "mistral-medium",
+    "gemini-3.5-flash",
+]
 
 VISION_MODEL = "deepseek-flash"
 
