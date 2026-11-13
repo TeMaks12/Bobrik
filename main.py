@@ -26,6 +26,7 @@ from config.prompts import *
 from config.settings import *
 from config.access import get_api_key
 from commands.access import register_access_handlers
+from commands.model import register_model_handlers, get_model
 
 MODELS_API_URL = MODELS_API_URL
 MODELS_MODEL = MODELS_MODEL
@@ -42,6 +43,7 @@ image_response_prompt = IMAGE_RESPONSE_PROMPT
 
 bot = AsyncTeleBot(BOT_TOKEN)
 register_access_handlers(bot)
+register_model_handlers(bot)
 
 # names
 NAME_PHRASES = NAME_PHRASES
@@ -304,7 +306,7 @@ async def generate_image_response(prompt):
                 "Content-Type": "application/json"
             }
             data = {
-                "model": MODELS_MODEL,
+                "model": get_model(),
                 "messages": [
                     {"role": "system", "content": image_context},
                     {"role": "user", "content": prompt}
@@ -705,7 +707,7 @@ async def _generate_response(user_input, chat_id, user_id, is_search=False):
                 "Content-Type": "application/json"
             }
             data = {
-                "model": MODELS_MODEL,
+                "model": get_model(),
                 "messages": [{"role": "user", "content": search_query_prompt}],
                 "max_tokens": 50
             }
@@ -800,7 +802,7 @@ async def _generate_response(user_input, chat_id, user_id, is_search=False):
                 "Content-Type": "application/json"
             }
             data = {
-                "model": MODELS_MODEL,
+                "model": get_model(),
                 "messages": [
                     {"role": "system", "content": f"{context_dan}\n{base_context}"},
                     {"role": "user", "content": prompt}
@@ -916,6 +918,38 @@ async def handle_text_message(message):
     except Exception as e:
         logger.error(f"Ошибка в handle_text_message для чата {chat_id}: {e}")
         await bot.reply_to(message, "<b>Ошибка!</b> Не удалось обработать сообщение.", parse_mode="HTML")
+
+
+def clear_chat_history(chat_id):
+    try:
+        db_path = f'bobrik/DataBases/chat_{chat_id}.db'
+        if os.path.exists(db_path):
+            conn = sqlite3.connect(db_path)
+            conn.execute('DELETE FROM messages WHERE chat_id = ?', (chat_id,))
+            conn.commit()
+            conn.close()
+        return True
+    except Exception as e:
+        logger.error(f"Ошибка при очистке истории чата {chat_id}: {e}")
+        return False
+
+
+@bot.message_handler(commands=['reset'])
+async def handle_reset_command(message):
+    try:
+        chat_id = message.chat.id
+        if message.chat.type != 'private':
+            member = await bot.get_chat_member(chat_id, message.from_user.id)
+            if member.status not in ('creator', 'administrator'):
+                await bot.reply_to(message, "<b>Ошибка!</b> Очищать историю могут только администраторы чата.", parse_mode="HTML")
+                return
+        if clear_chat_history(chat_id):
+            await bot.reply_to(message, "<b>Готово.</b> История чата очищена.", parse_mode="HTML")
+        else:
+            await bot.reply_to(message, "<b>Ошибка!</b> Не удалось очистить историю.", parse_mode="HTML")
+    except Exception as e:
+        logger.error(f"Ошибка в /reset для чата {message.chat.id}: {e}")
+        await bot.reply_to(message, "<b>Ошибка!</b> Не удалось выполнить команду.", parse_mode="HTML")
 
 
 @bot.message_handler(func=lambda message: True)
