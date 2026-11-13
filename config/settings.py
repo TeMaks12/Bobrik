@@ -45,10 +45,9 @@ MODELS_LIST = [
     "deepseek-flash",
     "deepseek-v4-pro",
     "claude-sonnet-5-5",
-    "glm-5",
-    "grok-4.5",
-    "gpt-5.4-mini",
+    "claude-haiku-5-5",
     "kimi-k2",
+    "grok-build-0.1",
     "mistral-medium",
     "gemini-3.5-flash",
 ]
