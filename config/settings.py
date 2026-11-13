@@ -11,7 +11,6 @@ MODELS_DIR = BASE_DIR / "models"
 SILERO_MODELS_DIR = BASE_DIR / "silero_models"
 VOICE_DIR = BASE_DIR / "bobrik" / "voice_responses"
 DATABASES_DIR = BASE_DIR / "bobrik" / "DataBases"
-ACCESS_FILE = BASE_DIR / "bobrik" / "access.json"
 
 os.makedirs(VOICE_DIR, exist_ok=True)
 os.makedirs(DATABASES_DIR, exist_ok=True)
