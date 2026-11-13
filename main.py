@@ -534,7 +534,7 @@ async def direct_image_recognition(image_data, prompt):
         return "Ошибка при обработке изображения."
 
 
-async def recognize_image(image_data):
+async def recognize_image(image_data, prompt=None):
     try:
         base64_image = base64.b64encode(image_data).decode('utf-8')
         image_url = f"data:image/jpeg;base64,{base64_image}"
@@ -551,7 +551,7 @@ async def recognize_image(image_data):
                     "content": [
                         {
                             "type": "text",
-                            "text": image_response_prompt
+                            "text": prompt or image_response_prompt
                         },
                         {
                             "type": "image_url",
@@ -582,45 +582,51 @@ async def recognize_image(image_data):
 @bot.message_handler(content_types=['photo'])
 async def handle_photo(message):
     try:
-        if message.chat.type != 'private':
-            return
+        chat_id = message.chat.id
+        caption = (message.caption or "").strip()
 
-        logger.info(f"Обработка фото в личном чате {message.chat.id}")
-        init_db(message.chat.id)
-        update_user_info(message.chat.id, message.from_user)
+        if message.chat.type != 'private':
+            bot_username = (await bot.get_me()).username.lower()
+            replied = (
+                message.reply_to_message is not None
+                and message.reply_to_message.from_user is not None
+                and (message.reply_to_message.from_user.username or "").lower() == bot_username
+            )
+            if not (f"@{bot_username}" in caption.lower() or caption.startswith('>') or replied):
+                return
+            caption = caption.lstrip('>').replace(f"@{bot_username}", "", 1).strip()
+
+        init_db(chat_id)
+        update_user_info(chat_id, message.from_user)
 
         file_info = await bot.get_file(message.photo[-1].file_id)
         downloaded_file = await bot.download_file(file_info.file_path)
 
-        if message.caption and not message.caption.lower().startswith('/photo'):
-            prompt = message.caption.strip()
-            
-            recognizing_msg = await bot.reply_to(message, "<b>🖼️ Обрабатываю изображение...</b>", parse_mode="HTML")
-            response = await direct_image_recognition(downloaded_file, prompt)
-
-            await bot.reply_to(message, response, parse_mode="Markdown")
-            await bot.delete_message(message.chat.id, recognizing_msg.message_id)
-        elif message.caption and message.caption.lower().startswith('/photo'):
-            prompt = message.caption.replace('/photo', '').strip()
-            if not prompt:
-                await bot.reply_to(message,"<b>Ошибка!</b> Укажи промпт после /photo в подписи фото.\nПример: /photo что изображено на этой картинке?",parse_mode="HTML")
+        async with typing_action(chat_id):
+            if caption.lower().startswith('/photo'):
+                prompt = caption[len('/photo'):].strip()
+                if not prompt:
+                    await bot.reply_to(message, "<b>Ошибка!</b> Укажи промпт после /photo в подписи фото.", parse_mode="HTML")
+                    return
+                response = await direct_image_recognition(downloaded_file, prompt)
+                save_message(chat_id, message.from_user.id, f"[пользователь скинул фото] {prompt}", response)
+                await bot.reply_to(message, response, parse_mode="Markdown")
                 return
 
-            recognizing_msg = await bot.reply_to(message, "<b>🖼️ Обрабатываю изображение с промптом...</b>", parse_mode="HTML")
-            response = await direct_image_recognition(downloaded_file, prompt)
+            description = await recognize_image(downloaded_file, PHOTO_DESCRIBE_PROMPT)
+            description = description.strip()[:700]
 
-            await bot.reply_to(message, response, parse_mode="Markdown")
-            await bot.delete_message(message.chat.id, recognizing_msg.message_id)
-        else:
-            user_input = "[пользователь прислал фото]"
-            response, response_time = await generate_response(
-                user_input,
-                message.chat.id,
-                message.from_user.id,
-                image_data=downloaded_file
-            )
-            save_message(message.chat.id, message.from_user.id, user_input, response)
-            await bot.reply_to(message, response, parse_mode="Markdown")
+            user_input = f"[пользователь скинул фото, его описание: {description}]"
+            if caption:
+                user_input += f"\nПодпись к фото: {caption}"
+
+        response, response_time = await generate_response(
+            user_input,
+            chat_id,
+            message.from_user.id
+        )
+        save_message(chat_id, message.from_user.id, user_input, response)
+        await bot.reply_to(message, response, parse_mode="Markdown")
     except Exception as e:
         logger.error(f"Ошибка в обработчике фото: {e}")
         await bot.reply_to(message, "<b>Ошибка!</b> Не удалось обработать фото.", parse_mode="HTML")
@@ -793,6 +799,8 @@ async def _generate_response(user_input, chat_id, user_id, is_search=False, imag
             f"4. Если пользователь указал как к нему обращаться - используй это имя\n"
             f"5. Поддерживай живой диалог, задавай уточняющие вопросы если нужно"
         )
+        if "[пользователь скинул фото" in user_input:
+            prompt += "\n\n" + PHOTO_RULES
 
     while retries < max_retries and empty_retries < max_empty_retries:
         try:
